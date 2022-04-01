@@ -3,44 +3,42 @@ package com.krayapp.movingviewpj
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Path
 import android.graphics.Point
-import android.hardware.display.DisplayManager
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.DisplayMetrics
-import android.view.Display
+import android.util.AttributeSet
 import android.view.View
 import android.widget.Toast
-import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.constraintlayout.widget.ConstraintSet
+import androidx.appcompat.app.AppCompatActivity
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
     private val car: View by lazy { initCar() }
-    private val screenWidth: Int by lazy { getWindowSize()[0] }
-    private val screenHeight: Int by lazy { getWindowSize()[1] }
 
-    private val viewModel:MainViewModel by viewModel()
+    private val viewModel: MainViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         clickListener()
+        viewModel.mutableLiveData.observe(this) {
+            checkCarInCorner()
+            moveCar(it)
+        }
         getWindowSize()
     }
-
     private fun initCar(): View = findViewById(R.id.car_view)
 
     private fun clickListener() {
         car.setOnClickListener {
-            //viewmodel
+            viewModel.calculateCar()
         }
 
     }
 
-    private fun getWindowSize(): ArrayList<Int> {
+    private fun getWindowSize() {
         val size = Point()
         windowManager.defaultDisplay.getSize(size)
         val height = size.y
@@ -48,28 +46,32 @@ class MainActivity : AppCompatActivity() {
         val arrayList = ArrayList<Int>()
         arrayList.add((width / 2) - 100) //чтобы элемент не выходил за границу - вычитаю 100 либо 200
         arrayList.add((height / 2) - 200)
-
-        return arrayList
+        viewModel.setSize(arrayList)
     }
 
     /**
      * Узнать крайние координаты, и каждый раз проверять  где находится view
      */
-    private fun moveCar(x: Int, y: Int) {
+    @SuppressLint("Recycle")
+    private fun moveCar(array:IntArray) {
+        val path = Path().apply {
+            arcTo(0f, 0f, 1000f, 1000f, 270f, -180f, true)
+        }
+        val arcAnimation = ObjectAnimator.ofFloat(car, View.X, View.Y, path).apply {
+            duration = 2000
+        }
         val randomValue = Random.nextInt(-200, -100).toFloat()
-        val animX = ObjectAnimator.ofFloat(car, "TranslationX", x.toFloat())
-        val animY = ObjectAnimator.ofFloat(car, "TranslationY", y.toFloat())
+        val animX = ObjectAnimator.ofFloat(car, "TranslationX", array[0].toFloat())
+        val animY = ObjectAnimator.ofFloat(car, "TranslationY", array[1].toFloat())
         val animator = AnimatorSet()
         animator.playSequentially(animX, animY)
         animator.start()
-
-        println("VVV Car Location ${-screenWidth}")
     }
 
-    private fun checkCarInCorner():Boolean{
+    private fun checkCarInCorner() {
         val carLocation = IntArray(2)
         car.getLocationOnScreen(carLocation)
-        if(carLocation[0]>screenWidth)
+        viewModel.checkCarInCorner(carLocation)
     }
 
 
